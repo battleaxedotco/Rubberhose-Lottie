@@ -405,8 +405,12 @@ export default {
 
     buildControllerCallbacks() {
       this.controllers.forEach((controller) => {
+        console.log("Building callback...", controller);
+        console.log(`${controller.layer},Effects,${controller.name},0`);
         this.animAPI.addValueCallback(
-          this.animAPI.getKeyPath(`${this.layer},Effects,${controller.name},0`),
+          this.animAPI.getKeyPath(
+            `${controller.layer},Effects,${controller.name},0`
+          ),
           (currentVal) => {
             return controller.value;
           }
