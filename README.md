@@ -1,7 +1,7 @@
 # rubberhose-lottie
 
-| [Demo](https://rubberhose-demo.netlify.app/) | [Installation](#installation) | [Usage](#usage) | [API](#api) | [Examples](#examples) |
-| -------------------------------------------- | :---------------------------: | :-------------: | :---------: | :-------------------: |
+| [Demo](https://rubberhose-demo.netlify.app/#/about) | [Installation](#installation) | [Usage](#usage) | [API](#api) | [Examples](#examples) |
+| --------------------------------------------------- | :---------------------------: | :-------------: | :---------: | :-------------------: |
 
 
 ### Vue component to easily make any Lottie file with Rubberhose fully interactive:
@@ -52,3 +52,36 @@ export default {
 | @update | Number | The reactive value of the slider within (includes easing) |
 
 # Examples
+
+[Check out this demo site for live examples.](https://rubberhose-demo.netlify.app/#/about)
+
+The `controllers` prop is an array expecting a `layer`, `name` (of Slider Expression Control on layer), and `value` (numeric):
+
+```html
+<template>
+  <Rubberhose
+    :animation-data="animationData"
+    :controllers="controllerArray"
+  />
+  <Grid style="width: fit-content" column>
+    <Input-Scroll
+      label="Hose Length"
+      v-model="controllers.length.value"
+      :step="20"
+      :min="1"
+    />
+  </Grid>
+</template>
+
+<script>
+export default {
+  data: () => ({
+    controllers: {
+      length: {
+        layer: "control",
+        name: "hoseLength",
+        value: 700,
+      },
+  })
+}
+```
