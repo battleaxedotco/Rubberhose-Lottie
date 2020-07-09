@@ -1,1 +1,1 @@
-export default require("./Rubberhose-Lottie.vue").default;
+export default require("./lib/Rubberhose-Lottie.vue").default;

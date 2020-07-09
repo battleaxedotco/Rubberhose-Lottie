@@ -19,7 +19,7 @@ export default {
     animationData: {
       type: Object,
       default: () => {
-        return null;
+        return require("./static.json");
       },
     },
     controllers: {
