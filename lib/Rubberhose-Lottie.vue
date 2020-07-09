@@ -488,4 +488,7 @@ export default {
 .rubberhose-animation {
   width: 100%;
 }
+.rh-bg {
+  fill: transparent;
+}
 </style>
