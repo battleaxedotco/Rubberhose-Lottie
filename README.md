@@ -6,6 +6,8 @@
 
 ### Vue component to easily make any Lottie file with Rubberhose fully interactive:
 
+![](https://thumbs.gfycat.com/LiveAnguishedHalcyon-size_restricted.gif)
+
 # Installation
 
 ```bash
