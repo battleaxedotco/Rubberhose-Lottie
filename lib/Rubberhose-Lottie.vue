@@ -389,7 +389,6 @@ export default {
                 sibling.parentJoystick.scale.y = layer.ks.s.k[1] / 100;
                 sibling.parentJoystick.width = 400;
                 sibling.parentJoystick.height = 400;
-                console.log(sibling.parentJoystick.scale.x);
               } else {
                 console.log("NO SIBLING FOR:", matchingID);
               }
@@ -480,6 +479,7 @@ export default {
               window.addEventListener("mousemove", self.adjustMousePos);
             });
             layer.elt.addEventListener("touchstart", (evt) => {
+              evt.preventDefault();
               self.activeItem = layer;
               self.override = true;
             });
@@ -504,6 +504,7 @@ export default {
           self.activeItem = null;
         });
         window.addEventListener("touchmove", (evt) => {
+          evt.preventDefault();
           self.override = false;
           let coords = evt.targetTouches[0];
           let result = this.getCoordinatesRelativeToLottie(
