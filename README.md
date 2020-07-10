@@ -61,10 +61,7 @@ The `controllers` prop is an array expecting a `layer`, `name` (of Slider Expres
 
 ```html
 <template>
-  <Rubberhose
-    :animation-data="animationData"
-    :controllers="controllerArray"
-  />
+  <Rubberhose :animation-data="animationData" :controllers="controllerArray" />
   <Grid style="width: fit-content" column>
     <Input-Scroll
       label="Hose Length"
@@ -76,29 +73,29 @@ The `controllers` prop is an array expecting a `layer`, `name` (of Slider Expres
 </template>
 
 <script>
-export default {
-  data: () => ({
-    controllers: {
-      length: {
-        layer: "control",
-        name: "hoseLength",
-        value: 700,
-      },
-  }),
-  components: {
-    Rubberhose: require("rubberhose-lottie").default,
-  },
-  computed: {
-    // The prop expects an Array, but I'd prefer to keep them as Objects
-    // in data above. So we just convert the parent data objects to an Array:
-    controllerArray() {
-      let temp = [];
-      Object.keys(this.controllers).forEach((key) => {
-        temp.push(this.controllers[key]);
-      });
-      return temp;
+  export default {
+    data: () => ({
+      controllers: {
+        length: {
+          layer: "control",
+          name: "hoseLength",
+          value: 700,
+        },
+    }),
+    components: {
+      Rubberhose: require("rubberhose-lottie").default,
     },
+    computed: {
+      // The prop expects an Array, but I'd prefer to keep them as Objects
+      // in data above. So we just convert the parent data objects to an Array:
+      controllerArray() {
+        let temp = [];
+        Object.keys(this.controllers).forEach((key) => {
+          temp.push(this.controllers[key]);
+        });
+        return temp;
+      },
+    }
   }
-
-}
+</script>
 ```
