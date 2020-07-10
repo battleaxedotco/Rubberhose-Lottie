@@ -99,8 +99,8 @@ The `controllers` prop is an array expecting a `layer`, `name` (of Slider Expres
       actualControllerData() {
         return [
           {
-            layer: "control", // Name of the layer containing Slider control
-            name: "hoseDirection", // Name of the Slider Expression control
+            layer: "Hose 1::Hips", // Name of the layer containing Slider control
+            name: "Bend Direction", // Name of the Slider Expression control
             value: 100, // Value of the Slider
           }
         ]
