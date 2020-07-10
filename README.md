@@ -95,6 +95,16 @@ The `controllers` prop is an array expecting a `layer`, `name` (of Slider Expres
         });
         return temp;
       },
+      // Without converting it like above, the component expects input similar to this:
+      actualControllerData() {
+        return [
+          {
+            layer: "control", // Name of the layer containing Slider control
+            name: "hoseDirection", // Name of the Slider Expression control
+            value: 100, // Value of the Slider
+          }
+        ]
+      }
     }
   }
 </script>
