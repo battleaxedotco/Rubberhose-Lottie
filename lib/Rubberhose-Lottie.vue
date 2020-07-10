@@ -480,6 +480,7 @@ export default {
             });
             layer.elt.addEventListener("touchstart", (evt) => {
               evt.preventDefault();
+              document.documentElement.style.overflow = "hidden";
               self.activeItem = layer;
               self.override = true;
             });
@@ -502,6 +503,7 @@ export default {
         });
         window.addEventListener("touchend", (evt) => {
           self.activeItem = null;
+          document.documentElement.style.overflow = "auto";
         });
         window.addEventListener("touchmove", (evt) => {
           evt.preventDefault();
