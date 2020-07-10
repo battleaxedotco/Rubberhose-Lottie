@@ -151,11 +151,13 @@ export default {
       }
     },
     activeItem(val) {
-      if (this.debug) {
+      if (this.debug && val) {
         console.log("ACTIVE ITEM IS CURRENTLY:", val);
         console.log(
           `Anchor: ${val.anchor.x}, Pos: ${val.position.x} == ${this.mousePos.x}`
         );
+      } else if (this.debug) {
+        console.log("ACTIVE ITEM IS:", val);
       }
     },
   },
@@ -267,9 +269,16 @@ export default {
       file.layers.forEach((layer) => {
         if (/\:\:/.test(layer.nm) && !/autoflop/i.test(layer.nm)) {
           let hoseName = layer.nm.replace(/\:\:.*/, "");
-          layer["cl"] = `rubberhose-controller${
+          let eltClass = `rubberhose-controller-${layer.nm
+            .replace(/\:\:/, "-")
+            .replace(/\s/gm, "-")
+            .toLowerCase()}`;
+          layer["cl"] = `${eltClass}${
             this.locked.includes(layer.nm) ? "-locked" : ""
           }${this.hidden.includes(layer.nm) ? "-hidden" : ""}`;
+          // layer["cl"] = `rubberhose-controller${
+          //   this.locked.includes(layer.nm) ? "-locked" : ""
+          // }${this.hidden.includes(layer.nm) ? "-hidden" : ""}`;
           // if (this.hidden.includes(layer.nm)) layer.hd = true;
           // else
           layer["hd"] = false;
@@ -292,7 +301,7 @@ export default {
               y: layer.ks.a.k[1],
             },
             parent: hoseName,
-            class: hoseName.toLowerCase().replace(/\s/gm, "-"),
+            class: eltClass,
             sibling: "",
           });
 
@@ -484,7 +493,7 @@ export default {
               }
             );
           } else {
-            console.log(`${layer.name} was locked`);
+            console.log(`${layer.name} was locked or had no matching elt`);
           }
         });
         window.addEventListener("mouseup", (evt) => {
@@ -618,6 +627,10 @@ export default {
 
 .rubberhose-controller,
 .rubberhose-draggable {
+  cursor: move;
+}
+
+[class^="rubberhose-controller"]:not([class$="-locked"]) {
   cursor: move;
 }
 
