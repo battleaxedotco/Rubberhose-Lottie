@@ -46,6 +46,12 @@ export default {
         return [];
       },
     },
+    hidden: {
+      type: Array,
+      default: () => {
+        return [];
+      },
+    },
     height: {
       type: String,
       default: "",
@@ -88,6 +94,7 @@ export default {
     dragElements: [],
     draggableLayers: [],
     clickableLayers: [],
+    joystickLayers: [],
     controlPoints: [],
     realHoses: [],
     activeItem: null,
@@ -101,14 +108,46 @@ export default {
   watch: {
     stringMousePos(value) {
       if (this.activeItem && !this.override) {
-        this.activeItem.position.x = this.mousePos.x + this.activeItem.anchor.x;
-        this.activeItem.position.y = this.mousePos.y + this.activeItem.anchor.y;
-        if (this.activeItem.parent) {
-          let parent = this.realHoses.find((hose) => {
-            return hose.name == this.activeItem.parent;
-          });
-          if (parent) this.updateHose(parent);
+        // If this is a draggable object or a Rubberhose:
+        if (!this.activeItem.parentJoystick) {
+          this.activeItem.position.x =
+            this.mousePos.x + this.activeItem.anchor.x;
+          this.activeItem.position.y =
+            this.mousePos.y + this.activeItem.anchor.y;
+          if (this.activeItem.parent) {
+            let parent = this.realHoses.find((hose) => {
+              return hose.name == this.activeItem.parent;
+            });
+            if (parent) this.updateHose(parent);
+          }
+        } else {
+          // Not foolproof. Certain joysticks (maybe due to an expression connection?) will jump wildly on initial movement
+          let min = -200,
+            max = 200;
+          let parentOffsetX =
+            this.activeItem.parentJoystick.scale.x *
+            this.activeItem.parentJoystick.width;
+          let parentOffsetY =
+            this.activeItem.parentJoystick.scale.y *
+            this.activeItem.parentJoystick.height;
+          let modifier = 1 / this.activeItem.parentJoystick.scale.x;
+          let x =
+            (this.mousePos.x - this.activeItem.parentJoystick.position.x) *
+            modifier;
+          let y =
+            (this.mousePos.y - this.activeItem.parentJoystick.position.y) *
+            modifier;
+          x = x <= max && x >= min ? x : x < min ? min : max;
+          y = y <= max && y >= min ? y : y < min ? min : max;
+          this.activeItem.position.x = x;
+          this.activeItem.position.y = y;
         }
+      }
+    },
+    animationData(val) {
+      if (val) {
+        console.log("File changed...");
+        this.init();
       }
     },
     activeItem(val) {
@@ -124,8 +163,11 @@ export default {
     stringMousePos() {
       return JSON.stringify(this.mousePos);
     },
+    rigControllers() {
+      return [].concat(this.controlPoints, this.joystickLayers);
+    },
     totalDraggableLayers() {
-      return [].concat(this.draggableLayers, this.controlPoints);
+      return [].concat(this.draggableLayers, this.rigControllers);
     },
   },
   methods: {
@@ -145,6 +187,12 @@ export default {
       // Force file to play so Lottie API can function
       this.animData.play();
     },
+    resetPositions() {
+      this.totalDraggableLayers.forEach((layer) => {
+        layer.position.x = layer.firstPosition.x;
+        layer.position.y = layer.firstPosition.y;
+      });
+    },
     prepAnimationFile(file) {
       let hosesFound = [],
         total = [],
@@ -153,6 +201,7 @@ export default {
       this.controlPoints = [];
       this.clickableLayers = [];
       this.realHoses = [];
+      this.joystickLayers = [];
       if (this.clickable.length) {
         this.clickable.forEach((clickItem) => {
           let layer = file.layers.find((item) => {
@@ -160,6 +209,7 @@ export default {
           });
           let thisClickable = {};
           if (layer) {
+            // if (this.hidden.includes(layer.nm)) layer.hd = true;
             layer["cl"] = `rubberhose-clickable${
               this.locked.includes(layer.nm) ? "-locked" : ""
             }`;
@@ -190,6 +240,7 @@ export default {
             return item.nm == layerName;
           });
           if (layer) {
+            // if (this.hidden.includes(layer.nm)) layer.hd = true;
             layer["cl"] = `rubberhose-draggable${
               this.locked.includes(layer.nm) ? "-locked" : ""
             }`;
@@ -204,17 +255,23 @@ export default {
                 x: layer.ks.a.k[0],
                 y: layer.ks.a.k[1],
               },
+              firstPosition: {
+                x: layer.ks.p.k[0],
+                y: layer.ks.p.k[1],
+              },
             };
             this.draggableLayers.push(thisDraggable);
           }
         });
       }
       file.layers.forEach((layer) => {
-        if (/\:\:/.test(layer.nm)) {
+        if (/\:\:/.test(layer.nm) && !/autoflop/i.test(layer.nm)) {
           let hoseName = layer.nm.replace(/\:\:.*/, "");
           layer["cl"] = `rubberhose-controller${
             this.locked.includes(layer.nm) ? "-locked" : ""
-          }`;
+          }${this.hidden.includes(layer.nm) ? "-hidden" : ""}`;
+          // if (this.hidden.includes(layer.nm)) layer.hd = true;
+          // else
           layer["hd"] = false;
           let shape = layer.shapes.find((item) => {
             return item.nm == "Control Point";
@@ -223,6 +280,10 @@ export default {
             name: layer.nm,
             matches: new RegExp(`^${hoseName}`),
             position: {
+              x: layer.ks.p.k[0],
+              y: layer.ks.p.k[1],
+            },
+            firstPosition: {
               x: layer.ks.p.k[0],
               y: layer.ks.p.k[1],
             },
@@ -238,8 +299,97 @@ export default {
           if (shape)
             shape.it[1]["cl"] = hoseName.toLowerCase().replace(/\s/gm, "-");
           if (!hosesFound.includes(hoseName)) hosesFound.push(hoseName);
+        } else {
+          if (
+            layer.ef &&
+            layer.ef.length &&
+            layer.ef[0].nm == "joystickLimit"
+          ) {
+            let eltClass = `joystick-controller-${layer.nm
+              .replace(/\s/gm, "-")
+              .toLowerCase()}`;
+            layer["cl"] = `${eltClass}${
+              this.locked.includes(layer.nm) ? "-locked" : ""
+            }${this.hidden.includes(layer.nm) ? "-hidden" : ""}`;
+            // if (this.hidden.includes(layer.nm)) layer.hd = true;
+            // else
+            layer["hd"] = false;
+            let joystickController = {
+              name: layer.nm,
+              class: eltClass,
+              position: {
+                x: layer.ks.p.k[0],
+                y: layer.ks.p.k[1],
+              },
+              anchor: {
+                x: layer.ks.a.k[0],
+                y: layer.ks.a.k[1],
+              },
+              firstPosition: {
+                x: layer.ks.p.k[0],
+                y: layer.ks.p.k[1],
+              },
+              parentJoystick: {
+                position: {
+                  x: 0,
+                  y: 0,
+                },
+                scale: {
+                  x: 1,
+                  y: 1,
+                },
+                width: 400,
+                height: 400,
+              },
+            };
+            this.joystickLayers.push(joystickController);
+          }
         }
       });
+
+      // Do extra logic for Joysticks to match controllers to their bounds
+      if (this.joystickLayers.length) {
+        file.layers.forEach((layer) => {
+          if (
+            layer.shapes &&
+            layer.shapes.length &&
+            layer.shapes[0].it &&
+            layer.shapes[0].it.length &&
+            layer.shapes[0].it[0].s &&
+            layer.shapes[0].it[0].s.x &&
+            /joystickLimit/.test(layer.shapes[0].it[0].s.x)
+          ) {
+            layer["cl"] = `joystick-bounds${
+              this.locked.includes(layer.nm) ? "-locked" : ""
+            }`;
+            if (this.hidden.includes(layer.nm)) layer.hd = true;
+            else layer["hd"] = false;
+            let expression = layer.shapes[0].it[0].s.x;
+            let controllerMatch = expression.match(
+              /thisComp\.layer\('([^']*)'\)\('ADBE\sEffect\sParade'\)/
+            );
+            if (controllerMatch.length) {
+              let matchingID = controllerMatch[1];
+              let sibling = this.joystickLayers.find((joystick) => {
+                return joystick.name == matchingID;
+              });
+              if (sibling) {
+                sibling.parentJoystick.position.x = layer.ks.p.k[0];
+                sibling.parentJoystick.position.y = layer.ks.p.k[1];
+                sibling.parentJoystick.scale.x = layer.ks.s.k[0] / 100;
+                sibling.parentJoystick.scale.y = layer.ks.s.k[1] / 100;
+                sibling.parentJoystick.width = 400;
+                sibling.parentJoystick.height = 400;
+                console.log(sibling.parentJoystick.scale.x);
+              } else {
+                console.log("NO SIBLING FOR:", matchingID);
+              }
+            }
+          }
+        });
+      }
+
+      // Do extra logic for Rubberhose to determine matching hose, points, and siblings:
       temp.forEach((hose) => {
         let sibling = file.layers.find((layer) => {
           return hose.matches.test(layer.nm) && layer.nm !== hose.name;
@@ -247,8 +397,6 @@ export default {
         if (sibling) hose.sibling = sibling.nm;
         this.controlPoints.push(hose);
       });
-
-      // this.controlPoints = temp;
       hosesFound.forEach((hose) => {
         let targetLayer = file.layers.find((layer) => {
           return new RegExp(`^${hose}$`).test(layer.nm);
@@ -268,6 +416,7 @@ export default {
         rubberhose = this.updateHose(rubberhose);
         this.realHoses.push(rubberhose);
       });
+
       return file;
     },
     findDistance(a, b) {
@@ -334,6 +483,8 @@ export default {
                 ];
               }
             );
+          } else {
+            console.log(`${layer.name} was locked`);
           }
         });
         window.addEventListener("mouseup", (evt) => {
@@ -362,6 +513,7 @@ export default {
      */
     identifyLayerElement(layer) {
       let possibleElts = document.querySelectorAll(`.${layer.class}`);
+      let boundsX1, boundsX2, boundsY1, boundsY2;
       if (possibleElts.length < 2) return possibleElts[0];
       let nodeList = [];
       let match = null;
@@ -375,14 +527,10 @@ export default {
         if (layer.position.x == realPos.x && layer.position.y == realPos.y)
           match = path;
 
-        let boundsX1 =
-          layer.position.x + layer.anchor.x * -1 + position.width / 2;
-        let boundsX2 =
-          layer.position.x + layer.anchor.x * -1 - position.width / 2;
-        let boundsY1 =
-          layer.position.y + layer.anchor.y * -1 + position.height / 2;
-        let boundsY2 =
-          layer.position.y + layer.anchor.x * -1 - position.height / 2;
+        boundsX1 = layer.position.x + layer.anchor.x * -1 + position.width / 2;
+        boundsX2 = layer.position.x + layer.anchor.x * -1 - position.width / 2;
+        boundsY1 = layer.position.y + layer.anchor.y * -1 + position.height / 2;
+        boundsY2 = layer.position.y + layer.anchor.x * -1 - position.height / 2;
         if (
           boundsX1 >= realPos.x &&
           boundsX2 <= realPos.x &&
@@ -405,8 +553,10 @@ export default {
 
     buildControllerCallbacks() {
       this.controllers.forEach((controller) => {
-        console.log("Building callback...", controller);
-        console.log(`${controller.layer},Effects,${controller.name},0`);
+        if (this.debug) {
+          console.log("Building callback...", controller);
+          console.log(`${controller.layer},Effects,${controller.name},0`);
+        }
         this.animAPI.addValueCallback(
           this.animAPI.getKeyPath(
             `${controller.layer},Effects,${controller.name},0`
@@ -492,6 +642,14 @@ export default {
 .rubberhose-animation {
   width: 100%;
 }
+[class^="joystick-controller"]:not([class$="-locked"]) {
+  cursor: move;
+}
+
+[class$="-hidden"] {
+  opacity: 0;
+}
+
 .rh-bg {
   fill: transparent;
 }
