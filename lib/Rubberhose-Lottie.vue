@@ -12,6 +12,7 @@
 
 <script>
 import * as lottie from "lottie-web";
+const lottie_api = require("lottie-api-updated");
 
 export default {
   name: "Rubberhose-Lottie",
@@ -107,7 +108,6 @@ export default {
     isDragging: false,
   }),
   async mounted() {
-    require("./lottie_api.js");
     this.elt = this.$el.children[0];
     await this.init();
     window.addEventListener("resize", this.adjustScreenSize);
@@ -163,9 +163,40 @@ export default {
       }
       let tempX = this.mousePos.x - this.lastMousePos.x;
       let tempY = this.mousePos.y - this.lastMousePos.y;
-      this.activeItem.position.x = this.activeItem.lastPosition.x + tempX;
-      this.activeItem.position.y = this.activeItem.lastPosition.y + tempY;
-      if (this.debug) console.log(`[${tempX}, ${tempY}]`);
+      if (this.activeItem.offset) {
+        let lastPos = this.activeItem.lastPosition;
+        let ratioX = 1 / this.activeItem.offset.scale.x;
+        let ratioY = 1 / this.activeItem.offset.scale.y;
+        let rotatedPoint = this.rotatePoint(
+          this.activeItem.lastPosition,
+          { x: lastPos.x + tempX * ratioX, y: lastPos.y + tempY * ratioY },
+          this.activeItem.offset.rotation
+        );
+        if (this.debug)
+          console.log(
+            `lastPos: [${this.activeItem.lastPosition.x},${this.activeItem.lastPosition.y}],  distance: [${tempX}, ${tempY}] ==> rotation@${this.activeItem.offset.rotation} == result: [${rotatedPoint.x}, ${rotatedPoint.y}] >> scale: (${this.activeItem.offset.scale.x}, ${this.activeItem.offset.scale.y})%`
+          );
+        this.activeItem.position.x = rotatedPoint.x;
+        this.activeItem.position.y = rotatedPoint.y;
+      } else {
+        this.activeItem.position.x = this.activeItem.lastPosition.x + tempX;
+        this.activeItem.position.y = this.activeItem.lastPosition.y + tempY;
+      }
+    },
+    rotatePoint(center, point, angle) {
+      angle = angle * (Math.PI / 180); // Convert to radians
+      return {
+        x: Math.round(
+          Math.cos(angle) * (point.x - center.x) -
+            Math.sin(angle) * (point.y - center.y) +
+            center.x
+        ),
+        y: Math.round(
+          Math.sin(angle) * (point.x - center.x) +
+            Math.cos(angle) * (point.y - center.y) +
+            center.y
+        ),
+      };
     },
     async init() {
       try {
@@ -253,6 +284,7 @@ export default {
                 x: layer.ks.p.k[0],
                 y: layer.ks.p.k[1],
               },
+              rotation: layer.ks.r.k,
               offset: {},
               transform: {},
               anchor: {
@@ -283,6 +315,7 @@ export default {
             let eltClass = `rubberhose-draggable-${layer.nm
               .replace(/\:\:/, "-")
               .replace(/\s/gm, "-")
+              .replace(/\./gm, "_")
               .toLowerCase()}`;
             layer["cl"] = `${eltClass}${
               this.locked.includes(layer.nm) ? "-locked" : ""
@@ -294,6 +327,7 @@ export default {
                 x: layer.ks.a.k[0],
                 y: layer.ks.a.k[1],
               },
+              offset: this.getFullParentChain(layer),
               position: {
                 x: layer.ks.p.k[0],
                 y: layer.ks.p.k[1],
@@ -302,16 +336,13 @@ export default {
                 x: layer.ks.p.k[0],
                 y: layer.ks.p.k[1],
               },
+              rotation: layer.ks.r.k,
               firstPosition: {
                 x: layer.ks.p.k[0],
                 y: layer.ks.p.k[1],
               },
             };
             if (oldClass) thisDraggable["extraClass"] = oldClass;
-            // if (layerName == "RelativeAnchor")
-            //   thisDraggable.position = this.getInitialOffsetPosition(
-            //     thisDraggable
-            //   );
             this.draggableLayers.push(thisDraggable);
           }
         });
@@ -322,6 +353,7 @@ export default {
           let eltClass = `rubberhose-controller-${layer.nm
             .replace(/\:\:/, "-")
             .replace(/\s/gm, "-")
+            .replace(/\./gm, "_")
             .toLowerCase()}`;
           layer["cl"] = `${eltClass}${
             this.locked.includes(layer.nm) ? "-locked" : ""
@@ -345,6 +377,8 @@ export default {
               x: layer.ks.p.k[0],
               y: layer.ks.p.k[1],
             },
+            offset: this.getFullParentChain(layer),
+            rotation: layer.ks.r.k,
             anchor: {
               x: layer.ks.a.k[0],
               y: layer.ks.a.k[1],
@@ -364,7 +398,9 @@ export default {
             layer.ef[0].nm == "joystickLimit"
           ) {
             let eltClass = `joystick-controller-${layer.nm
+              .replace(/\:\:/, "-")
               .replace(/\s/gm, "-")
+              .replace(/\./gm, "_")
               .toLowerCase()}`;
             layer["cl"] = `${eltClass}${
               this.locked.includes(layer.nm) ? "-locked" : ""
@@ -482,13 +518,67 @@ export default {
 
       return file;
     },
-
+    // Retrieves parenting chain for Transform effects to ensure accurate movement
+    getFullParentChain(target, transform = null) {
+      if (!target.parent) return null;
+      else {
+        let parent = this.animationData.layers.find((layer) => {
+          return layer.ind == target.parent;
+        });
+        transform = transform
+          ? this.multiplyTransform(transform, target, parent)
+          : this.getTransformData(parent);
+        if (parent.parent)
+          transform = this.getFullParentChain(parent, transform);
+      }
+      return transform;
+    },
+    getTransformData(layer) {
+      let temp = {
+        scale: {},
+        position: {},
+        anchor: {},
+        rotation: 0,
+      };
+      temp["position"]["x"] = layer.ks.p.k[0];
+      temp["position"]["y"] = layer.ks.p.k[1];
+      temp["scale"]["x"] = layer.ks.s.k[0] / 100;
+      temp["scale"]["y"] = layer.ks.s.k[1] / 100;
+      temp["anchor"]["x"] = layer.ks.a.k[0];
+      temp["anchor"]["y"] = layer.ks.a.k[1];
+      temp["rotation"] = layer.ks.r.k;
+      return temp;
+    },
+    multiplyTransform(transform, child, parent) {
+      let parentData = this.getTransformData(parent);
+      Object.keys(transform).forEach((key) => {
+        if (/rotation/.test(key)) {
+          transform[key] = transform[key] + parentData[key];
+        } else {
+          Object.keys(transform[key]).forEach((prop) => {
+            if (/position|anchor/.test(key))
+              transform[key][prop] =
+                transform[key][prop] + parentData[key][prop];
+            else if (/scale/.test(key))
+              transform[key][prop] =
+                transform[key][prop] * parentData[key][prop];
+          });
+        }
+      });
+      return transform;
+    },
     findDistance(a, b) {
       return Math.hypot(
         a.position.x - b.position.x,
         a.position.y - b.position.y
       );
     },
+    // findNewPointByAngle(x, y, angle, distance) {
+    //   var result = {};
+    //   result.y = Math.round(Math.sin((angle * Math.PI) / 180) * distance + y);
+    //   result.x = Math.round(Math.cos((angle * Math.PI) / 180) * distance + x);
+    //   return result;
+    // },
     updateHose(rubberhose) {
       let hasDistance = this.animationData.layers.find((item) => {
         return (
@@ -512,6 +602,55 @@ export default {
       this.mousePos.x = result.x;
       this.mousePos.y = result.y;
     },
+    buildRubberhoseControllers() {
+      // this.hoseControls = [];
+      // console.log("BUILDING HOSE CONTROLS:");
+      // this.realHoses.forEach((hose) => {
+      //   let args = {
+      //     bendDirection: {
+      //       realName: "Hose Length",
+      //       index: 1,
+      //     },
+      //     bendRadius: {
+      //       realName: "Bend Radius",
+      //       index: 2,
+      //     },
+      //     bendDirection: {
+      //       realName: "Bend Direction",
+      //       index: 4,
+      //     },
+      //   };
+      //   let temp = {};
+      //   // console.log(this.animAPI)
+      //   Object.keys(args).forEach((control) => {
+      //     temp[control] = args[control];
+      //     temp[control]["value"] = 20;
+      //     temp[control]["isDirty"] = false;
+      //     // console.log(props.getPropertyAtIndex(0))
+      //     // console.log(
+      //     //   `${hose.A.name},Effects,RubberHose 2,${temp[control].realName},0`
+      //     // );
+      //     this.animAPI.addValueCallback(
+      //       this.animAPI.getKeyPath(
+      //         `${hose.A.name},Effects,RubberHose 2,${temp[control].realName}`
+      //       ),
+      //       (currentVal) => {
+      //         console.log(currentVal);
+      //         // return 20;
+      //         // return temp[control].isDirty ? temp[control].value : currentVal;
+      //       }
+      //     );
+      //   });
+      //   const self = this;
+      //   setTimeout(() => {
+      //     temp.bendDirection.value = -100;
+      //     temp.bendDirection.isDirty = true;
+      //   }, 2000);
+      //   // console.log(temp)
+      //   // console.log(hose)
+      // });
+    },
+
     buildDynamicCallbacks() {
       const self = this;
       this.$nextTick(() => {
@@ -529,6 +668,7 @@ export default {
         self.totalDraggableLayers.forEach((layer) => {
           layer["elt"] = this.identifyLayerElement(layer);
           if (layer.elt && !this.locked.includes(layer.name)) {
+            if (layer.extraClass) layer.elt.classList.add(layer.extraClass);
             layer.elt.addEventListener("mousedown", (evt) => {
               self.isDragging = true;
               self.activeItem = layer;
@@ -552,6 +692,7 @@ export default {
             console.log(`${layer.name} was locked or had no matching elt`);
           }
         });
+        this.buildRubberhoseControllers();
         window.addEventListener("mouseup", (evt) => {
           self.activeItem = null;
           self.isDragging = false;
