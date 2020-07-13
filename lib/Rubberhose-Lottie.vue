@@ -116,8 +116,9 @@ export default {
     // This can be much better.
     stringMousePos(value) {
       if (this.activeItem && !this.override) {
-        if (this.activeItem.parentJoystick) this.moveActiveElementJoystick();
-        else this.getRelativeMouseMovement();
+        // if (this.activeItem.parentJoystick) this.moveActiveElementJoystick();
+        // else
+        this.getRelativeMouseMovement();
       }
     },
     animationData(val) {
@@ -132,6 +133,13 @@ export default {
       if (val) {
         val.lastPosition.x = val.position.x;
         val.lastPosition.y = val.position.y;
+        if (this.debug) {
+          console.log(
+            "LAST POSITION:",
+            `[${val.lastPosition.x}, ${val.lastPosition.y}]`
+          );
+          console.log(val.lastPosition);
+        }
       } else if (this.debug) {
         console.log("ACTIVE ITEM IS:", val);
       }
@@ -155,6 +163,23 @@ export default {
     },
   },
   methods: {
+    getNullifiedOffset() {
+      return {
+        position: {
+          x: 0,
+          y: 0,
+        },
+        scale: {
+          x: 1,
+          y: 1,
+        },
+        anchor: {
+          x: 0,
+          y: 0,
+        },
+        rotation: 0,
+      };
+    },
     // This works well! Calculates the movement of cursor relative to AE comp, adds to layer position.
     getRelativeMouseMovement() {
       if (this.lastMousePos.x == 0 && this.lastMousePos.y == 0) {
@@ -163,36 +188,61 @@ export default {
       }
       let tempX = this.mousePos.x - this.lastMousePos.x;
       let tempY = this.mousePos.y - this.lastMousePos.y;
-      if (this.activeItem.offset) {
-        let lastPos = this.activeItem.lastPosition;
-        let ratioX = 1 / this.activeItem.offset.scale.x;
-        let ratioY = 1 / this.activeItem.offset.scale.y;
-        let rotatedPoint = this.rotatePoint(
-          this.activeItem.lastPosition,
-          { x: lastPos.x + tempX * ratioX, y: lastPos.y + tempY * ratioY },
-          this.activeItem.offset.rotation
+      let lastPos =
+        this.activeItem.lastPosition || this.activeItem.firstPosition;
+      let offset = this.activeItem.offset;
+      if (!offset) {
+        // console.error(`NO OFFSET FOR ${this.activeItem.name}:`, this.activeItem)
+        offset = this.getNullifiedOffset();
+      }
+      let ratioX = 1 / offset.scale.x;
+      let ratioY = 1 / offset.scale.y;
+      let rotatedPoint = this.rotatePoint(
+        lastPos,
+        { x: lastPos.x + tempX * ratioX, y: lastPos.y + tempY * ratioY },
+        offset.rotation
+      );
+      if (isNaN(rotatedPoint.x) || isNaN(rotatedPoint.y)) {
+        console.error(
+          `MousePos is NaN`,
+          `[${this.mousePos.x}, ${this.mousePos.y}] ?== [${this.lastMousePos.x}, ${this.lastMousePos.y}]`,
+          `[${tempX}, ${tempY}] : ${ratioX}, ${ratioY}`
         );
-        if (this.debug)
-          console.log(
-            `lastPos: [${this.activeItem.lastPosition.x},${this.activeItem.lastPosition.y}],  distance: [${tempX}, ${tempY}] ==> rotation@${this.activeItem.offset.rotation} == result: [${rotatedPoint.x}, ${rotatedPoint.y}] >> scale: (${this.activeItem.offset.scale.x}, ${this.activeItem.offset.scale.y})%`
-          );
+        return null;
+      }
+      if (this.debug)
+        console.log(
+          `lastPos: [${this.activeItem.lastPosition.x},${this.activeItem.lastPosition.y}],  distance: [${tempX}, ${tempY}] ==> rotation@${offset.rotation} == result: [${rotatedPoint.x}, ${rotatedPoint.y}] >> scale: (${offset.scale.x}, ${offset.scale.y})%`
+        );
+      if (!/joystick/i.test(this.activeItem.type)) {
         this.activeItem.position.x = rotatedPoint.x;
         this.activeItem.position.y = rotatedPoint.y;
       } else {
-        this.activeItem.position.x = this.activeItem.lastPosition.x + tempX;
-        this.activeItem.position.y = this.activeItem.lastPosition.y + tempY;
+        let x = rotatedPoint.x,
+          y = rotatedPoint.y,
+          max = 200,
+          min = -200;
+        x = x <= max && x >= min ? x : x < min ? min : max;
+        y = y <= max && y >= min ? y : y < min ? min : max;
+        this.activeItem.position.x = x;
+        this.activeItem.position.y = y;
       }
+      //  else {
+      //   this.activeItem.position.x = this.activeItem.lastPosition.x + tempX;
+      //   this.activeItem.position.y = this.activeItem.lastPosition.y + tempY;
+      // }
     },
     rotatePoint(center, point, angle) {
-      angle = angle * (Math.PI / 180); // Convert to radians
+      // Since After Effects does not use right-hand angle orientation for rotation, need to invert degrees provided to sin() functions
+      angle = angle * (Math.PI / 180);
       return {
         x: Math.round(
           Math.cos(angle) * (point.x - center.x) -
-            Math.sin(angle) * (point.y - center.y) +
+            Math.sin(angle * -1) * (point.y - center.y) +
             center.x
         ),
         y: Math.round(
-          Math.sin(angle) * (point.x - center.x) +
+          Math.sin(angle * -1) * (point.x - center.x) +
             Math.cos(angle) * (point.y - center.y) +
             center.y
         ),
@@ -225,28 +275,28 @@ export default {
         layer.position.y = layer.firstPosition.y;
       });
     },
-    // Still has some bugs for certain Joysticks. Should probably find a way to make this relative as well
-    moveActiveElementJoystick() {
-      let min = -200,
-        max = 200;
-      let parentOffsetX =
-        this.activeItem.parentJoystick.scale.x *
-        this.activeItem.parentJoystick.width;
-      let parentOffsetY =
-        this.activeItem.parentJoystick.scale.y *
-        this.activeItem.parentJoystick.height;
-      let modifier = 1 / this.activeItem.parentJoystick.scale.x;
-      let x =
-        (this.mousePos.x - this.activeItem.parentJoystick.position.x) *
-        modifier;
-      let y =
-        (this.mousePos.y - this.activeItem.parentJoystick.position.y) *
-        modifier;
-      x = x <= max && x >= min ? x : x < min ? min : max;
-      y = y <= max && y >= min ? y : y < min ? min : max;
-      this.activeItem.position.x = x;
-      this.activeItem.position.y = y;
-    },
+    // OLD
+    // moveActiveElementJoystick() {
+    //   let min = -200,
+    //     max = 200;
+    //   let parentOffsetX =
+    //     this.activeItem.parentJoystick.scale.x *
+    //     this.activeItem.parentJoystick.width;
+    //   let parentOffsetY =
+    //     this.activeItem.parentJoystick.scale.y *
+    //     this.activeItem.parentJoystick.height;
+    //   let modifier = 1 / this.activeItem.parentJoystick.scale.x;
+    //   let x =
+    //     (this.mousePos.x - this.activeItem.parentJoystick.position.x) *
+    //     modifier;
+    //   let y =
+    //     (this.mousePos.y - this.activeItem.parentJoystick.position.y) *
+    //     modifier;
+    //   x = x <= max && x >= min ? x : x < min ? min : max;
+    //   y = y <= max && y >= min ? y : y < min ? min : max;
+    //   this.activeItem.position.x = x;
+    //   this.activeItem.position.y = y;
+    // },
     // Some of this is entirely redundant, may want to clean up
     prepAnimationFile(file) {
       let hosesFound = [],
@@ -277,19 +327,20 @@ export default {
               name: clickItem.layer || clickItem.name,
               class: eltClass,
               position: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
               lastPosition: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
-              rotation: layer.ks.r.k,
+              rotation: this.getRealOrStartValue(layer.ks.r.k),
               offset: {},
+              type: "clickable",
               transform: {},
               anchor: {
-                x: layer.ks.a.k[0],
-                y: layer.ks.a.k[1],
+                x: this.getRealOrStartValue(layer.ks.a.k[0]),
+                y: this.getRealOrStartValue(layer.ks.a.k[1]),
               },
             };
             if (oldClass) thisClickable["extraClass"] = oldClass;
@@ -324,22 +375,23 @@ export default {
               name: layerName,
               class: eltClass,
               anchor: {
-                x: layer.ks.a.k[0],
-                y: layer.ks.a.k[1],
+                x: this.getRealOrStartValue(layer.ks.a.k[0]),
+                y: this.getRealOrStartValue(layer.ks.a.k[1]),
               },
               offset: this.getFullParentChain(layer),
               position: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
+              type: "draggable",
               lastPosition: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
-              rotation: layer.ks.r.k,
+              rotation: this.getRealOrStartValue(layer.ks.r.k),
               firstPosition: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
             };
             if (oldClass) thisDraggable["extraClass"] = oldClass;
@@ -366,22 +418,23 @@ export default {
             name: layer.nm,
             matches: new RegExp(`^${hoseName}`),
             position: {
-              x: layer.ks.p.k[0],
-              y: layer.ks.p.k[1],
+              x: this.getRealOrStartValue(layer.ks.p.k[0]),
+              y: this.getRealOrStartValue(layer.ks.p.k[1]),
             },
             firstPosition: {
-              x: layer.ks.p.k[0],
-              y: layer.ks.p.k[1],
+              x: this.getRealOrStartValue(layer.ks.p.k[0]),
+              y: this.getRealOrStartValue(layer.ks.p.k[1]),
             },
             lastPosition: {
-              x: layer.ks.p.k[0],
-              y: layer.ks.p.k[1],
+              x: this.getRealOrStartValue(layer.ks.p.k[0]),
+              y: this.getRealOrStartValue(layer.ks.p.k[1]),
             },
             offset: this.getFullParentChain(layer),
-            rotation: layer.ks.r.k,
+            rotation: this.getRealOrStartValue(layer.ks.r.k),
+            type: "rubberhose",
             anchor: {
-              x: layer.ks.a.k[0],
-              y: layer.ks.a.k[1],
+              x: this.getRealOrStartValue(layer.ks.a.k[0]),
+              y: this.getRealOrStartValue(layer.ks.a.k[1]),
             },
             parent: hoseName,
             class: eltClass,
@@ -412,35 +465,25 @@ export default {
               name: layer.nm,
               class: eltClass,
               position: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
+              rotation: this.getRealOrStartValue(layer.ks.r.k),
               anchor: {
-                x: layer.ks.a.k[0],
-                y: layer.ks.a.k[1],
+                x: this.getRealOrStartValue(layer.ks.a.k[0]),
+                y: this.getRealOrStartValue(layer.ks.a.k[1]),
               },
               firstPosition: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
               lastPosition: {
-                x: layer.ks.p.k[0],
-                y: layer.ks.p.k[1],
+                x: this.getRealOrStartValue(layer.ks.p.k[0]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1]),
               },
-              offset: {},
+              type: "joystick",
+              offset: this.getFullParentChain(layer),
               transform: {},
-              parentJoystick: {
-                position: {
-                  x: 0,
-                  y: 0,
-                },
-                scale: {
-                  x: 1,
-                  y: 1,
-                },
-                width: 400,
-                height: 400,
-              },
             };
             this.joystickLayers.push(joystickController);
           }
@@ -473,16 +516,16 @@ export default {
               let sibling = this.joystickLayers.find((joystick) => {
                 return joystick.name == matchingID;
               });
-              if (sibling) {
-                sibling.parentJoystick.position.x = layer.ks.p.k[0];
-                sibling.parentJoystick.position.y = layer.ks.p.k[1];
-                sibling.parentJoystick.scale.x = layer.ks.s.k[0] / 100;
-                sibling.parentJoystick.scale.y = layer.ks.s.k[1] / 100;
-                sibling.parentJoystick.width = 400;
-                sibling.parentJoystick.height = 400;
-              } else {
-                console.log("NO SIBLING FOR:", matchingID);
-              }
+              // if (sibling) {
+              //   sibling.parentJoystick.position.x = layer.ks.p.k[0];
+              //   sibling.parentJoystick.position.y = layer.ks.p.k[1];
+              //   sibling.parentJoystick.scale.x = layer.ks.s.k[0] / 100;
+              //   sibling.parentJoystick.scale.y = layer.ks.s.k[1] / 100;
+              //   sibling.parentJoystick.width = 400;
+              //   sibling.parentJoystick.height = 400;
+              // } else {
+              //   console.log("NO SIBLING FOR:", matchingID);
+              // }
             }
           }
         });
@@ -520,7 +563,7 @@ export default {
     },
     // Retrieves parenting chain for Transform effects to ensure accurate movement
     getFullParentChain(target, transform = null) {
-      if (!target.parent) return null;
+      if (!target.parent) return this.getNullifiedOffset();
       else {
         let parent = this.animationData.layers.find((layer) => {
           return layer.ind == target.parent;
@@ -531,8 +574,18 @@ export default {
         if (parent.parent)
           transform = this.getFullParentChain(parent, transform);
       }
+      if (!transform) {
+        transform = this.getNullifiedOffset();
+        console.log("OVERRIDING TRANSFORM");
+      }
       return transform;
     },
+    getRealOrStartValue(param) {
+      if (/object/i.test(typeof param))
+        return param.s ? (param.s.length ? param.s[0] : 0) : 0;
+      else return param;
+    },
+    // Snatches top-level Transform data from a given layer
     getTransformData(layer) {
       let temp = {
         scale: {},
@@ -549,6 +602,7 @@ export default {
       temp["rotation"] = layer.ks.r.k;
       return temp;
     },
+    // Transposes multiple Transform matrices to get absolute value for child
     multiplyTransform(transform, child, parent) {
       let parentData = this.getTransformData(parent);
       Object.keys(transform).forEach((key) => {
@@ -567,18 +621,13 @@ export default {
       });
       return transform;
     },
+    // If needed, a rubberhose's extended / length logic can be retrieved via Math.hypot()
     findDistance(a, b) {
       return Math.hypot(
         a.position.x - b.position.x,
         a.position.y - b.position.y
       );
     },
-    // findNewPointByAngle(x, y, angle, distance) {
-    //   var result = {};
-    //   result.y = Math.round(Math.sin((angle * Math.PI) / 180) * distance + y);
-    //   result.x = Math.round(Math.cos((angle * Math.PI) / 180) * distance + x);
-    //   return result;
-    // },
     updateHose(rubberhose) {
       let hasDistance = this.animationData.layers.find((item) => {
         return (
@@ -594,6 +643,7 @@ export default {
       rubberhose["isExtended"] = rubberhose.distance >= rubberhose.length;
       return rubberhose;
     },
+    // Automatically updates mouse coords to relative size within Lottie's AE composition
     adjustMousePos(coords) {
       let result = this.getCoordinatesRelativeToLottie(
         coords.clientX,
@@ -602,6 +652,7 @@ export default {
       this.mousePos.x = result.x;
       this.mousePos.y = result.y;
     },
+    // Wish this could work. Filed an issue report on lottie-web, can't seem to auto-snatch Rubberhose controls.
     buildRubberhoseControllers() {
       // this.hoseControls = [];
       // console.log("BUILDING HOSE CONTROLS:");
@@ -650,7 +701,7 @@ export default {
       //   // console.log(hose)
       // });
     },
-
+    // Handles all the interaction logic after Lottie has been initialized
     buildDynamicCallbacks() {
       const self = this;
       this.$nextTick(() => {
@@ -666,6 +717,9 @@ export default {
           }
         });
         self.totalDraggableLayers.forEach((layer) => {
+          if (this.debug) {
+            console.log(`LAYER: ${layer.name}, OFFSET::`, layer.offset);
+          }
           layer["elt"] = this.identifyLayerElement(layer);
           if (layer.elt && !this.locked.includes(layer.name)) {
             if (layer.extraClass) layer.elt.classList.add(layer.extraClass);
@@ -703,7 +757,7 @@ export default {
           document.documentElement.style.overflow = "auto";
         });
         window.addEventListener("touchmove", (evt) => {
-          evt.preventDefault();
+          // evt.preventDefault();
           self.override = false;
           let coords = evt.targetTouches[0];
           let result = this.getCoordinatesRelativeToLottie(
@@ -727,6 +781,7 @@ export default {
         );
       });
     },
+    // If files are swapped, try to remove the above listeners
     flushAllEvents() {
       const self = this;
       this.reset();
@@ -752,7 +807,7 @@ export default {
         document.documentElement.style.overflow = "auto";
       });
       window.removeEventListener("touchmove", (evt) => {
-        evt.preventDefault();
+        // evt.preventDefault();
         self.override = false;
         let coords = evt.targetTouches[0];
         let result = this.getCoordinatesRelativeToLottie(
@@ -765,8 +820,10 @@ export default {
     },
 
     /**
-     * Currently only works with layer.Transform's anchor offset.
-     * Doesn't take into account shape or Contents transforms.
+     * Currently works by assigning unique classes, and isn't fully utilized.
+     *
+     * This could potentially try and identify an element by it's position,
+     * but is no longer needed since unique class lookup is far easier and more reliable.
      */
     identifyLayerElement(layer) {
       let possibleElts = document.querySelectorAll(`.${layer.class}`);
@@ -841,6 +898,9 @@ export default {
       this.lottieSize.width = this.animationData.w;
       this.lottieSize.height = this.animationData.h;
     },
+    // It might make more sense to allow users to pass through Lottie options to this component,
+    // but lottie_api cannot work unless autoplay is true, and canvas/HTML are unreliable. It might
+    // not be necessary to allow them to do so, since many options have mandatory values
     buildAnimation(anim = null) {
       if (!anim) anim = this.animationData;
       return lottie.loadAnimation({
