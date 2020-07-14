@@ -1,11 +1,8 @@
 <template>
-  <div
-    class="rubberhose-container"
-    :style="{
+  <div class="rubberhose-container" :style="{
       height: height,
       width: width,
-    }"
-  >
+    }">
     <div class="rubberhose-animation" />
   </div>
 </template>
@@ -21,54 +18,54 @@ export default {
       type: Object,
       default: () => {
         return require("./static.json");
-      },
+      }
     },
     controllers: {
       type: Array,
       default: () => {
         return [];
-      },
+      }
     },
     draggable: {
       type: Array,
       default: () => {
         return [];
-      },
+      }
     },
     clickable: {
       type: Array,
       default: () => {
         return [];
-      },
+      }
     },
     locked: {
       type: Array,
       default: () => {
         return [];
-      },
+      }
     },
     hidden: {
       type: Array,
       default: () => {
         return [];
-      },
+      }
     },
     height: {
       type: String,
-      default: "",
+      default: ""
     },
     width: {
       type: String,
-      default: "",
+      default: ""
     },
     layer: {
       type: String,
-      default: "control",
+      default: "control"
     },
     debug: {
       type: Boolean,
-      default: false,
-    },
+      default: false
+    }
   },
   data: () => ({
     speed: 1,
@@ -81,21 +78,21 @@ export default {
     control: [],
     mousePos: {
       x: 0,
-      y: 0,
+      y: 0
     },
     lastMousePos: {
       x: 0,
-      y: 0,
+      y: 0
     },
     compSize: {
       width: 0,
       height: 0,
       x: 0,
-      y: 0,
+      y: 0
     },
     lottieSize: {
       width: 0,
-      height: 0,
+      height: 0
     },
     lottieElt: null,
     dragElements: [],
@@ -105,7 +102,7 @@ export default {
     controlPoints: [],
     realHoses: [],
     activeItem: null,
-    isDragging: false,
+    isDragging: false
   }),
   async mounted() {
     this.elt = this.$el.children[0];
@@ -149,7 +146,7 @@ export default {
         this.lastMousePos.x = 0;
         this.lastMousePos.y = 0;
       }
-    },
+    }
   },
   computed: {
     stringMousePos() {
@@ -160,24 +157,24 @@ export default {
     },
     totalDraggableLayers() {
       return [].concat(this.draggableLayers, this.rigControllers);
-    },
+    }
   },
   methods: {
     getNullifiedOffset() {
       return {
         position: {
           x: 0,
-          y: 0,
+          y: 0
         },
         scale: {
           x: 1,
-          y: 1,
+          y: 1
         },
         anchor: {
           x: 0,
-          y: 0,
+          y: 0
         },
-        rotation: 0,
+        rotation: 0
       };
     },
     // This works well! Calculates the movement of cursor relative to AE comp, adds to layer position.
@@ -245,7 +242,7 @@ export default {
           Math.sin(angle * -1) * (point.x - center.x) +
             Math.cos(angle) * (point.y - center.y) +
             center.y
-        ),
+        )
       };
     },
     async init() {
@@ -270,7 +267,7 @@ export default {
       }
     },
     resetPositions() {
-      this.totalDraggableLayers.forEach((layer) => {
+      this.totalDraggableLayers.forEach(layer => {
         layer.position.x = layer.firstPosition.x;
         layer.position.y = layer.firstPosition.y;
       });
@@ -308,8 +305,8 @@ export default {
       this.realHoses = [];
       this.joystickLayers = [];
       if (this.clickable.length) {
-        this.clickable.forEach((clickItem) => {
-          let layer = file.layers.find((item) => {
+        this.clickable.forEach(clickItem => {
+          let layer = file.layers.find(item => {
             return item.nm == clickItem.layer || clickItem.name;
           });
           let thisClickable = {};
@@ -328,11 +325,11 @@ export default {
               class: eltClass,
               position: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               lastPosition: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               rotation: this.getRealOrStartValue(layer.ks.r.k),
               offset: {},
@@ -340,8 +337,8 @@ export default {
               transform: {},
               anchor: {
                 x: this.getRealOrStartValue(layer.ks.a.k[0]),
-                y: this.getRealOrStartValue(layer.ks.a.k[1]),
-              },
+                y: this.getRealOrStartValue(layer.ks.a.k[1])
+              }
             };
             if (oldClass) thisClickable["extraClass"] = oldClass;
             this.clickableLayers.push(thisClickable);
@@ -350,13 +347,13 @@ export default {
       }
 
       if (this.draggable.length) {
-        this.draggable.forEach((dragItem) => {
+        this.draggable.forEach(dragItem => {
           let layerName;
           if (/string/i.test(typeof dragItem)) layerName = dragItem;
           else layerName = dragItem.layer || dragItem.name;
 
           let thisDraggable = {};
-          let layer = file.layers.find((item) => {
+          let layer = file.layers.find(item => {
             return item.nm == layerName;
           });
           if (layer) {
@@ -376,30 +373,30 @@ export default {
               class: eltClass,
               anchor: {
                 x: this.getRealOrStartValue(layer.ks.a.k[0]),
-                y: this.getRealOrStartValue(layer.ks.a.k[1]),
+                y: this.getRealOrStartValue(layer.ks.a.k[1])
               },
               offset: this.getFullParentChain(layer),
               position: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               type: "draggable",
               lastPosition: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               rotation: this.getRealOrStartValue(layer.ks.r.k),
               firstPosition: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
-              },
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
+              }
             };
             if (oldClass) thisDraggable["extraClass"] = oldClass;
             this.draggableLayers.push(thisDraggable);
           }
         });
       }
-      file.layers.forEach((layer) => {
+      file.layers.forEach(layer => {
         if (/\:\:/.test(layer.nm) && !/autoflop/i.test(layer.nm)) {
           let hoseName = layer.nm.replace(/\:\:.*/, "");
           let eltClass = `rubberhose-controller-${layer.nm
@@ -411,7 +408,7 @@ export default {
             this.locked.includes(layer.nm) ? "-locked" : ""
           }${this.hidden.includes(layer.nm) ? "-hidden" : ""}`;
           layer["hd"] = false;
-          let shape = layer.shapes.find((item) => {
+          let shape = layer.shapes.find(item => {
             return item.nm == "Control Point";
           });
           temp.push({
@@ -419,26 +416,26 @@ export default {
             matches: new RegExp(`^${hoseName}`),
             position: {
               x: this.getRealOrStartValue(layer.ks.p.k[0]),
-              y: this.getRealOrStartValue(layer.ks.p.k[1]),
+              y: this.getRealOrStartValue(layer.ks.p.k[1])
             },
             firstPosition: {
               x: this.getRealOrStartValue(layer.ks.p.k[0]),
-              y: this.getRealOrStartValue(layer.ks.p.k[1]),
+              y: this.getRealOrStartValue(layer.ks.p.k[1])
             },
             lastPosition: {
               x: this.getRealOrStartValue(layer.ks.p.k[0]),
-              y: this.getRealOrStartValue(layer.ks.p.k[1]),
+              y: this.getRealOrStartValue(layer.ks.p.k[1])
             },
             offset: this.getFullParentChain(layer),
             rotation: this.getRealOrStartValue(layer.ks.r.k),
             type: "rubberhose",
             anchor: {
               x: this.getRealOrStartValue(layer.ks.a.k[0]),
-              y: this.getRealOrStartValue(layer.ks.a.k[1]),
+              y: this.getRealOrStartValue(layer.ks.a.k[1])
             },
             parent: hoseName,
             class: eltClass,
-            sibling: "",
+            sibling: ""
           });
 
           if (shape)
@@ -466,24 +463,24 @@ export default {
               class: eltClass,
               position: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               rotation: this.getRealOrStartValue(layer.ks.r.k),
               anchor: {
                 x: this.getRealOrStartValue(layer.ks.a.k[0]),
-                y: this.getRealOrStartValue(layer.ks.a.k[1]),
+                y: this.getRealOrStartValue(layer.ks.a.k[1])
               },
               firstPosition: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               lastPosition: {
                 x: this.getRealOrStartValue(layer.ks.p.k[0]),
-                y: this.getRealOrStartValue(layer.ks.p.k[1]),
+                y: this.getRealOrStartValue(layer.ks.p.k[1])
               },
               type: "joystick",
               offset: this.getFullParentChain(layer),
-              transform: {},
+              transform: {}
             };
             this.joystickLayers.push(joystickController);
           }
@@ -492,7 +489,7 @@ export default {
 
       // Do extra logic for Joysticks to match controllers to their bounds
       if (this.joystickLayers.length) {
-        file.layers.forEach((layer) => {
+        file.layers.forEach(layer => {
           if (
             layer.shapes &&
             layer.shapes.length &&
@@ -513,7 +510,7 @@ export default {
             );
             if (controllerMatch.length) {
               let matchingID = controllerMatch[1];
-              let sibling = this.joystickLayers.find((joystick) => {
+              let sibling = this.joystickLayers.find(joystick => {
                 return joystick.name == matchingID;
               });
               // if (sibling) {
@@ -532,25 +529,25 @@ export default {
       }
 
       // Do extra logic for Rubberhose to determine matching hose, points, and siblings:
-      temp.forEach((hose) => {
-        let sibling = file.layers.find((layer) => {
+      temp.forEach(hose => {
+        let sibling = file.layers.find(layer => {
           return hose.matches.test(layer.nm) && layer.nm !== hose.name;
         });
         if (sibling) hose.sibling = sibling.nm;
         this.controlPoints.push(hose);
       });
-      hosesFound.forEach((hose) => {
-        let targetLayer = file.layers.find((layer) => {
+      hosesFound.forEach(hose => {
+        let targetLayer = file.layers.find(layer => {
           return new RegExp(`^${hose}$`).test(layer.nm);
         });
         let rubberhose = {
           name: targetLayer.nm,
-          class: targetLayer.nm.toLowerCase().replace(/\s/gm, "-"),
+          class: targetLayer.nm.toLowerCase().replace(/\s/gm, "-")
         };
-        let pointA = this.controlPoints.find((item) => {
+        let pointA = this.controlPoints.find(item => {
           return new RegExp(rubberhose.name).test(item.name);
         });
-        let pointB = this.controlPoints.find((item) => {
+        let pointB = this.controlPoints.find(item => {
           return item.name == pointA.sibling;
         });
         rubberhose["A"] = pointA;
@@ -565,7 +562,7 @@ export default {
     getFullParentChain(target, transform = null) {
       if (!target.parent) return this.getNullifiedOffset();
       else {
-        let parent = this.animationData.layers.find((layer) => {
+        let parent = this.animationData.layers.find(layer => {
           return layer.ind == target.parent;
         });
         transform = transform
@@ -591,7 +588,7 @@ export default {
         scale: {},
         position: {},
         anchor: {},
-        rotation: 0,
+        rotation: 0
       };
       temp["position"]["x"] = layer.ks.p.k[0];
       temp["position"]["y"] = layer.ks.p.k[1];
@@ -605,11 +602,11 @@ export default {
     // Transposes multiple Transform matrices to get absolute value for child
     multiplyTransform(transform, child, parent) {
       let parentData = this.getTransformData(parent);
-      Object.keys(transform).forEach((key) => {
+      Object.keys(transform).forEach(key => {
         if (/rotation/.test(key)) {
           transform[key] = transform[key] + parentData[key];
         } else {
-          Object.keys(transform[key]).forEach((prop) => {
+          Object.keys(transform[key]).forEach(prop => {
             if (/position|anchor/.test(key))
               transform[key][prop] =
                 transform[key][prop] + parentData[key][prop];
@@ -629,7 +626,7 @@ export default {
       );
     },
     updateHose(rubberhose) {
-      let hasDistance = this.animationData.layers.find((item) => {
+      let hasDistance = this.animationData.layers.find(item => {
         return (
           (item.nm == rubberhose.A.name || item.nm == rubberhose.B.name) &&
           item.ef &&
@@ -637,7 +634,7 @@ export default {
         );
       });
       rubberhose["distance"] = this.findDistance(rubberhose.A, rubberhose.B);
-      rubberhose["length"] = hasDistance.ef[0].ef.find((prop) => {
+      rubberhose["length"] = hasDistance.ef[0].ef.find(prop => {
         return prop.nm == "Hose Length";
       }).v.k;
       rubberhose["isExtended"] = rubberhose.distance >= rubberhose.length;
@@ -705,40 +702,40 @@ export default {
     buildDynamicCallbacks() {
       const self = this;
       this.$nextTick(() => {
-        self.clickableLayers.forEach((layer) => {
+        self.clickableLayers.forEach(layer => {
           layer["elt"] = this.identifyLayerElement(layer);
           if (layer.elt && !this.locked.includes(layer.name)) {
-            layer.elt.addEventListener("click", (evt) => {
-              let target = self.clickable.find((item) => {
+            layer.elt.addEventListener("click", evt => {
+              let target = self.clickable.find(item => {
                 return item.layer == layer.name;
               });
               if (target && target.callback) target.callback();
             });
           }
         });
-        self.totalDraggableLayers.forEach((layer) => {
+        self.totalDraggableLayers.forEach(layer => {
           if (this.debug) {
             console.log(`LAYER: ${layer.name}, OFFSET::`, layer.offset);
           }
           layer["elt"] = this.identifyLayerElement(layer);
           if (layer.elt && !this.locked.includes(layer.name)) {
             if (layer.extraClass) layer.elt.classList.add(layer.extraClass);
-            layer.elt.addEventListener("mousedown", (evt) => {
+            layer.elt.addEventListener("mousedown", evt => {
               self.isDragging = true;
               self.activeItem = layer;
               window.addEventListener("mousemove", self.adjustMousePos);
             });
-            layer.elt.addEventListener("touchstart", (evt) => {
+            layer.elt.addEventListener("touchstart", evt => {
               document.documentElement.style.overflow = "hidden";
               self.activeItem = layer;
               self.override = true;
             });
             this.animAPI.addValueCallback(
               this.animAPI.getKeyPath(`${layer.name},Transform,Position`),
-              (currentVal) => {
+              currentVal => {
                 return [
                   layer.position.x + layer.anchor.x,
-                  layer.position.y + layer.anchor.y,
+                  layer.position.y + layer.anchor.y
                 ];
               }
             );
@@ -747,16 +744,16 @@ export default {
           }
         });
         this.buildRubberhoseControllers();
-        window.addEventListener("mouseup", (evt) => {
+        window.addEventListener("mouseup", evt => {
           self.activeItem = null;
           self.isDragging = false;
           window.removeEventListener("mousemove", self.adjustMousePos);
         });
-        window.addEventListener("touchend", (evt) => {
+        window.addEventListener("touchend", evt => {
           self.activeItem = null;
           document.documentElement.style.overflow = "auto";
         });
-        window.addEventListener("touchmove", (evt) => {
+        window.addEventListener("touchmove", evt => {
           // evt.preventDefault();
           self.override = false;
           let coords = evt.targetTouches[0];
@@ -770,12 +767,12 @@ export default {
       });
     },
     buildControllerCallbacks() {
-      this.controllers.forEach((controller) => {
+      this.controllers.forEach(controller => {
         this.animAPI.addValueCallback(
           this.animAPI.getKeyPath(
             `${controller.layer},Effects,${controller.name},0`
           ),
-          (currentVal) => {
+          currentVal => {
             return controller.value;
           }
         );
@@ -785,28 +782,28 @@ export default {
     flushAllEvents() {
       const self = this;
       this.reset();
-      self.totalDraggableLayers.forEach((layer) => {
+      self.totalDraggableLayers.forEach(layer => {
         if (layer.elt && !this.locked.includes(layer.name)) {
-          layer.elt.removeEventListener("mousedown", (evt) => {
+          layer.elt.removeEventListener("mousedown", evt => {
             self.activeItem = layer;
             window.addEventListener("mousemove", self.adjustMousePos);
           });
-          layer.elt.removeEventListener("touchstart", (evt) => {
+          layer.elt.removeEventListener("touchstart", evt => {
             document.documentElement.style.overflow = "hidden";
             self.activeItem = layer;
             self.override = true;
           });
         }
       });
-      window.removeEventListener("mouseup", (evt) => {
+      window.removeEventListener("mouseup", evt => {
         self.activeItem = null;
         window.removeEventListener("mousemove", self.adjustMousePos);
       });
-      window.removeEventListener("touchend", (evt) => {
+      window.removeEventListener("touchend", evt => {
         self.activeItem = null;
         document.documentElement.style.overflow = "auto";
       });
-      window.removeEventListener("touchmove", (evt) => {
+      window.removeEventListener("touchmove", evt => {
         // evt.preventDefault();
         self.override = false;
         let coords = evt.targetTouches[0];
@@ -833,7 +830,7 @@ export default {
       let match = null;
       for (let i = 0; i < possibleElts.length; i++)
         nodeList.push(possibleElts[i]);
-      nodeList.forEach((path) => {
+      nodeList.forEach(path => {
         let position = path.getBoundingClientRect();
         let x = Math.round(position.width / 2 + position.x);
         let y = Math.round(position.height / 2 + position.y);
@@ -871,7 +868,7 @@ export default {
         (x = x[0]), (y = x[1]);
       let insidePos = {
         x: Math.round(x - this.compSize.x),
-        y: Math.round(y - this.compSize.y),
+        y: Math.round(y - this.compSize.y)
       };
       return {
         x: Math.round(
@@ -879,7 +876,7 @@ export default {
         ),
         y: Math.round(
           insidePos.y * (this.lottieSize.height / this.compSize.height)
-        ),
+        )
       };
     },
     reset() {
@@ -909,14 +906,18 @@ export default {
         loop: this.loop,
         prerender: true,
         autoplay: this.autoplay,
-        animationData: anim,
+        animationData: anim
       });
-    },
-  },
+    }
+  }
 };
 </script>
 
 <style>
+svg *:not([class]) > *:not([class]) {
+  pointer-events: none;
+}
+
 .rubberhose-container svg {
   width: 100%;
 }
